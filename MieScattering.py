@@ -14,6 +14,54 @@ import scipy as sp
 import scipy.special
 import math
 
+def get_working_dis(padding=0):
+    """
+    Calculate the working distance for the far field simulation
+    
+    Note: Idealy working distance should be approaching infinity
+          since this is a simulation of the fourier optics
+          the fourier plane of a near field image should be 
+          placed at infinity
+          here we just take the distance 10000 times layer than
+          the sphere size
+          Also, it needs to be scaled by the padding number as well
+    
+    Parameters
+    ----------
+        padding: int, padding of the simulation
+    
+    Returns
+    -------
+        working_dis: int, working distance
+    """
+    
+    working_dis = 10000 * (2 * padding + 1)           
+    
+    return working_dis
+
+def get_scale_factor(res, fov, working_dis):
+    """
+    calculate the scale factor for the far field simulation
+    since the field is generated at infinity (idealy)
+    the field intensity is super low
+    this scale factor brings up the intensity
+    
+    Parameters
+    ----------
+        res: int, resolution of the simulation
+        fov: int, field of view
+        working_dis: int, working distance
+    
+    Returns
+    -------
+        scale_factor: int, the scale factor to be multiplied by the field
+    """
+    
+    scale_factor = working_dis * 2 * math.pi * res/fov
+
+    return scale_factor
+
+
 def get_order(a=1, lambDa=1):
     """
     Calculate the order of the integration based on radius of the sphere
