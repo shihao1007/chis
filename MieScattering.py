@@ -14,6 +14,66 @@ import scipy as sp
 import scipy.special
 import math
 
+
+def propagate_2D(res, fov, E, d):
+    """
+    Propagate a 2-D complex field by the free-space Green's Function
+    According to the frequency components by calling the cal_kz function
+    Convert the original field into Fourier Domain
+    Then multiply each frequency components with the phase shift
+    Then convert the propagated field back to spatial domain
+    
+    Parameters
+    ----------
+        res: int, 
+            resolution of the simulation
+        fov: int, 
+            field of view
+        E: complex, array_like,
+            the field to be propagated
+        d: float,
+            propatation distance
+    
+    Returns
+    -------
+        E_prop: complex, array_like,
+            the field after propagation
+    """
+    fx = np.fft.fftfreq(res, fov/res)
+    fy = fx
+
+    # create a meshgrid in the Fourier Domain
+    [kx, ky] = np.meshgrid(fx, fy)
+    # calculate the sum of kx ky components so we can calculate
+    # cos_theta in the Fourier Domain later
+    kxky = kx**2 + ky**2
+    # create a mask where the sum of kx^2 + ky^2 is
+    # bigger than 1 (where kz is not defined)
+    mask = kxky > 1
+    # mask out the sum
+    kxky[mask] = 0
+    # calculate kz
+    k_z = np.sqrt(1 - kxky)
+    #compute the phase mask for shifting each pixel of the field
+    phaseMask = np.exp(1j * k_z * d)
+    
+    #Fourier transform of the field and do fft-shift to the Fourier image
+    #so that the center of the Fourier transform is at the origin
+    E_orig = E
+    fE_orig = np.fft.fft2(E_orig)
+    fE_shift = np.fft.fftshift(fE_orig)
+    
+    #apply phase shift to the field in Fourier domain
+    fE_propagated = fE_shift * phaseMask
+    
+    #inverse shift the image in Fourier domain
+    #then apply inverse Fourier transform the get the spatial image
+    fE_inversae_shift = np.fft.ifftshift(fE_propagated)
+    E_prop = np.fft.ifft2(fE_inversae_shift)
+    
+    #return the propagated field
+    return E_prop
+
 def get_working_dis(padding=0):
     """
     Calculate the working distance for the far field simulation
@@ -28,11 +88,13 @@ def get_working_dis(padding=0):
     
     Parameters
     ----------
-        padding: int, padding of the simulation
+        padding: int, 
+            padding of the simulation
     
     Returns
     -------
-        working_dis: int, working distance
+        working_dis: int, 
+            working distance
     """
     
     working_dis = 10000 * (2 * padding + 1)           
@@ -48,13 +110,17 @@ def get_scale_factor(res, fov, working_dis):
     
     Parameters
     ----------
-        res: int, resolution of the simulation
-        fov: int, field of view
-        working_dis: int, working distance
+        res: int,
+            resolution of the simulation
+        fov: int,
+            field of view
+        working_dis: int, 
+            working distance
     
     Returns
     -------
-        scale_factor: int, the scale factor to be multiplied by the field
+        scale_factor: int,
+            the scale factor to be multiplied by the field
     """
     
     scale_factor = working_dis * 2 * math.pi * res/fov
@@ -69,12 +135,15 @@ def get_order(a=1, lambDa=1):
 
     Parameters
     ----------
-        a: radius of the sphere, float
-        lambDa: wavelength of the incident field, float
+        a: float,
+            radius of the sphere
+        lambDa: float,
+            wavelength of the incident field
 
     Returns
     -------
-        l: order of the field, 1-D array int
+        l: int, 1-D vector
+            orders of the field
     """
 
     # calculate the maximal order based on the Bessel function decaying
@@ -96,14 +165,19 @@ def coeff_b(l, k, n=1, a=1):
 
     Parameters
     ----------
-        l: order vector of the simulation, 1-D array, int
-        k: wavenumber of the incident field, float
-        n: refractive index (and attenuation coeff.) of the sphere, complex
-        a: radius of the sphere, float
+        l: int, 1-D vector
+            orders of the field
+        k:  float,
+            wavenumber of the incident field
+        n: complex,
+            refractive index (and attenuation coeff.) of the sphere
+        a: float,
+            radius of the sphere
 
     Returns
     -------
-        B: B coefficient vector, 1-D array, complex
+        B: 1-D array, complex B,
+            coefficient vector
     """
 
     # calculate everything related to spherical Bessel function of the 1st kind
@@ -131,7 +205,7 @@ def coeff_b(l, k, n=1, a=1):
 
     return B
 
-def horizontal_canvas(res, fov, z, dimention=2):
+def horizontal_canvas(res, fov, z, dimension=2):
     """
     get a horizontal render space (meshgrid) for the simulation
     x, y coordinates of the grid is specified by the resolution and FOV
@@ -144,23 +218,25 @@ def horizontal_canvas(res, fov, z, dimention=2):
 
     Parameters
     ----------
-        res: the resolution of the simulation, int
-        fov: the physical field of view of the simulation, int
-        z: z coordinate along the axial axis, float
-        dimention: the dimention of the simulation, 1 or 2
+        res: int, 
+            the resolution of the simulation
+        fov: int, 
+            the physical field of view of the simulation
+        z: float, 
+            z coordinate along the axial axis
+        dimension: 1 or 2,
+            the dimension of the simulation
 
     Returns
     -------
-        rMag: the magnitude of the position vector
-              corresponds to each pixel, 2-D array (res, res), float
-              or 1-D array (res/2, 1), float
-
+        rMag: 2-D array (res, res) or 1-D array (res/2, 1), float
+            the magnitude of the position vector corresponds to each pixel
     """
 
     # get the maxiaml value of the grid (centering with 0)
     halfgrid = np.ceil(fov/2)
 
-    if dimention == 2:
+    if dimension == 2:
         # get x,y,z components of the position vector r
         gx = np.linspace(-halfgrid, halfgrid, res)
         gy = gx
@@ -177,7 +253,7 @@ def horizontal_canvas(res, fov, z, dimention=2):
         # calculate the magnitude map of the whole plane
         rMag = np.sqrt(np.sum(rVecs**2, 2))
 
-    elif dimention == 1:
+    elif dimension == 1:
         # locate the center pixel
         center = int(np.ceil(res/2))
 
@@ -189,7 +265,7 @@ def horizontal_canvas(res, fov, z, dimention=2):
         rMag = np.sqrt(gx**2+gy**2+z**2)
 
     else:
-        raise ValueError('The dimention of the canvas is invalid!')
+        raise ValueError('The dimension of the canvas is invalid!')
 
     return rMag
 
@@ -200,14 +276,19 @@ def pad(res, fov, padding=0):
 
     Parameters
     ----------
-        res: resolution of the original image, int
-        fov: physical field of view of the original image, int
-        padding: padding coefficient, int
+        res: int, 
+            the resolution of the simulation
+        fov: int, 
+            the physical field of view of the simulation
+        padding: int,
+            padding coefficient
 
     Returns
     -------
-        simRes: simulation resolution, int
-        simFov: simulation field of view, int
+        simRes: int,
+            simulation resolution
+        simFov: int, 
+            simulation field of view
     """
 
     return int(res*(padding*2+1)), int(fov*(padding*2+1))
@@ -219,13 +300,15 @@ def asymptotic_hankel(x, l):
 
     Parameters
     ----------
-        x: array like input data, 2-D array, float
-        l: order vector, 1-D array, int
+        x: 2-D array, float
+            input data
+        l: 1-D array, int
+            order vector
 
     Returns
     -------
-        hl_sym: asymptotic form of the hankel values 3-D array
-                (x.shape, l.shape)
+        hl_sym: 3-D array with shape=(x.shape, l.shape)
+            asymptotic form of the hankel values 
     """
     if np.isscalar(l):
         raise ValueError('Please set l as an order vector, not scalar!')
@@ -245,23 +328,28 @@ def asymptotic_hankel(x, l):
 
     return hl_asym
 
-def asymptotic_legendre(res, fov, l, dimention=2):
+def asymptotic_legendre(res, fov, l, dimension=2):
     """
     Calculate the asymptotic form of the Legendre Polynomial
 
     Parameters
     ----------
-        res: resolution of the simulation, int
-        fov: physical field of view, int
-        l: order vector, 1-D array, int
-        dimention: dimention of the simulation, 1 or 2
+        res: int, 
+            resolution of the simulation
+        fov: int, 
+            field of view
+        l: 1-D array, int
+            order vector
+        dimension: 1 or 2
+            dimension of the simulation
 
     Returns
     -------
         pl_cos_theta: 3-D array, float, (res, res, len(l))
+            Legendre polynomial based on the angle theta
     """
     # get the frequency components
-    if dimention == 2:
+    if dimension == 2:
         fx = np.fft.fftfreq(res, fov/res)
         fy = fx
 
@@ -271,13 +359,13 @@ def asymptotic_legendre(res, fov, l, dimention=2):
         # cos_theta in the Fourier Domain later
         kxky = kx**2 + ky**2
 
-    elif dimention == 1:
+    elif dimension == 1:
         fx = np.fft.fftfreq(res, fov/res)[:int(res/2)+1]
         fy = fx[0]
 
         kxky = fx**2 + fy**2
     else:
-        raise ValueError('The dimention of the simulation is invalid!')
+        raise ValueError('The dimension of the simulation is invalid!')
 
 
     # create a mask where the sum of kx^2 + ky^2 is
@@ -295,11 +383,31 @@ def asymptotic_legendre(res, fov, l, dimention=2):
 
     return pl_cos_theta
 
-def near_filed_legendre(res, fov, z, k_dir, l, dimention=2):
+def near_filed_legendre(res, fov, z, k_dir, l, dimension=2):
     """
     calculate the legendre polynomial for near field simulation
     
     FIXME: this has only 2-D case
+    
+    Parameters
+    ----------
+        res: int, 
+            resolution of the simulation
+        fov: int, 
+            field of view
+        z: float
+            the position of the visualization plane at z axis
+        k_dir: 1-D vector
+            propagation direction
+        l: 1-D array, int
+            order vector
+        dimension: 1 or 2
+            dimension of the simulation
+            
+    Returns
+    -------
+        plcos: 3-D array, float, (res, res, len(l))
+            Legendre polynomial based on the angle theta
     
     """
     halfgrid = np.ceil(fov/2)
@@ -334,22 +442,27 @@ def near_filed_legendre(res, fov, z, k_dir, l, dimention=2):
     return plcos
 
 
-def scatter_matrix(res, fov, z, a, lambDa, dimention=2,
-                   option='far', k_dir=None):
+def scatter_matrix(res, fov, z, a, lambDa, k_dir, dimension=2,
+                   option='far'):
     """
     calculate the scatter matrix
-
+ 
     Parameters
     ----------
-        res:    resolution of the simulation, int
-        fov:    physical field of view of the simulation, int
-        z:      z coordinate of the rendering plane, assuming
-                this is a horizontal simulation
-                
-        k_dir:  propagation direction of the incident planewave
-        a:      radius of the sphere
-        lambDa: wavelength of the incident field
-        dimention: dimention of the simulation, 1 or 2
+        res: int, 
+            resolution of the simulation
+        fov: int, 
+            field of view
+        z: float
+            the position of the visualization plane at z axis
+        a: float
+            radius of the sphere
+        lambDa: float
+            wavelength of the incident field
+        k_dir: 1-D vector
+            propagation direction
+        dimension: 1 or 2
+            dimension of the simulation
         option: for near field or far field simulation, near or far
 
     Returns
@@ -361,7 +474,7 @@ def scatter_matrix(res, fov, z, a, lambDa, dimention=2,
     l = get_order(a, lambDa)
 
     # construct the evaluate plane
-    rMag = horizontal_canvas(res, fov, z, dimention)
+    rMag = horizontal_canvas(res, fov, z, dimension)
     kMag = 2 * np.pi / lambDa
 
     # calculate k dot r
@@ -370,14 +483,14 @@ def scatter_matrix(res, fov, z, a, lambDa, dimention=2,
     # if for far field simulation
     if option == 'far':
         # calculate the Legendre polynomial in frequency domain
-        pl_cos_theta = asymptotic_legendre(res, fov, l, dimention)
+        pl_cos_theta = asymptotic_legendre(res, fov, l, dimension)
         # calculate the asymptotic form of hankel funtions
         hlkr = asymptotic_hankel(kr, l)
     
     # if for near field simulation
     elif option == 'near':
         # calculate them normaly
-        pl_cos_theta = near_filed_legendre(res, fov, z, k_dir, l, dimention)
+        pl_cos_theta = near_filed_legendre(res, fov, z, k_dir, l, dimension)
         jkr = sp.special.spherical_jn(l, kr[..., None])
         ykr = sp.special.spherical_yn(l, kr[..., None])
         hlkr = jkr + ykr * 1j
@@ -397,17 +510,23 @@ def near_field(res, fov, a, n, lambDa, z, k_dir):
 
     Parameters
     ----------
-        res:    resolution of the simulation
-        fov:    physical field of the view of the simulation
-        z:      z coordinate of the rendering plane, assuming
-                this is a horizontal simulation
-        a:      radius of the sphere
-        n:      material property of the sphere
-        lambDa: wavelength of the incident field
-        k_dir:  propagation direction
-
-    Returns:
+        res: int, 
+            resolution of the simulation
+        fov: int, 
+            field of view
+        a: float
+            radius of the sphere
+        lambDa: float
+            wavelength of the incident field
+        z: float
+            the position of the visualization plane at z axis
+        k_dir: 1-D vector
+            propagation direction
+            
+    Returns
+    -------
         E_near:  2-D array, complex
+            complex near field image
     """
     l = get_order(a, lambDa)
     
@@ -423,21 +542,26 @@ def near_field(res, fov, a, n, lambDa, z, k_dir):
 
 
 
-def far_field(res, fov, z, a, n, lambDa, scale, dimention=2):
+def far_field(res, fov, z, a, n, lambDa, scale, dimension=2):
     """
     Calculate the far field image
 
     Parameters
     ----------
-        res:    resolution of the simulation
-        fov:    physical field of the view of the simulation
-        z:      z coordinate of the rendering plane, assuming
-                this is a horizontal simulation
-        a:      radius of the sphere
-        n:      material property of the sphere
-        lambDa: wavelength of the incident field
-        scale:  scale factor to scale up the simulated intensity
-        dimention: dimention of the simulation, 1 or 2
+        res: int, 
+            resolution of the simulation
+        fov: int, 
+            field of view
+        z: float
+            the position of the visualization plane at z axis
+        a: float
+            radius of the sphere
+        lambDa: float
+            wavelength of the incident field
+        scale: float
+            scale factor
+        dimension: 1 or 2
+            dimension of the simulation
 
     Returns:
         E_far:  2-D or 1-D array, complex
@@ -453,7 +577,7 @@ def far_field(res, fov, z, a, n, lambDa, scale, dimention=2):
     B = coeff_b(l, k, n, a)
 
     # calculate the matrix besides B vector
-    scatter = scatter_matrix(res, fov, z, a, lambDa, dimention)
+    scatter = scatter_matrix(res, fov, z, a, lambDa, dimension)
 
     # calculate every order of the integration
     Sum = scatter * B
@@ -461,11 +585,11 @@ def far_field(res, fov, z, a, n, lambDa, scale, dimention=2):
     # the farfield in the Fourier Domain
     E_far_shifted = np.sum(Sum, axis = -1) * scale
 
-    if dimention == 2:
+    if dimension == 2:
         # shift the Forier transform of 
         # the scatttering field for visualization
         E_far = np.fft.ifftshift(E_far_shifted)
-    elif dimention == 1:
+    elif dimension == 1:
         E_far = E_far_shifted
 
     return E_far
@@ -476,18 +600,20 @@ def far2near(far_field):
 
     Parameters
     ----------
-        far_field: the far field simulation, 2-D array, complex
+        far_field: 2-D array, complex
+            the far field simulation
 
     Returns
     -------
-        near_field: the near field image, 2-D array, complex
+        near_field: 2-D array, complex
+            the near field image
     """
 
     near_field = np.fft.ifftshift(np.fft.ifft2(np.fft.fftshift(far_field)))
 
     return near_field
 
-def bandpass_filter(res, fov, NA_in, NA_out, dimention=2):
+def bandpass_filter(res, fov, NA_in, NA_out, dimension=2):
     """
     Create a bandpass filter in the Fourier domain based on the
     back numberical aperture (NA) of the objective
@@ -499,15 +625,21 @@ def bandpass_filter(res, fov, NA_in, NA_out, dimention=2):
 
     Parameters
     ----------
-        res:    resolution of the simulation
-        fov:    physical field of view
-        NA_in:  center obscuration of the objective
-        NA_out: back aperture of the objective
-        dimention: dimention of the simulation
+        res: int, 
+            resolution of the simulation
+        fov: int, 
+            field of view
+        NA_in: float,
+            center obscuration of the objective
+        NA_out: float,
+            back aperture of the objective
+        dimension: 1 or 2
+            dimension of the simulation
 
     Returns
     -------
-        bpf:    bandpass filter, 2-D or 1-D array, int (1/0)
+        bpf: 2-D or 1-D array, int (1/0)
+            bandpass filter
     """
 
     # create a meshgrid in the Fourier domain
@@ -528,13 +660,13 @@ def bandpass_filter(res, fov, NA_in, NA_out, dimention=2):
     # mask the filter
     bpf[mask] = 1
 
-    # return according to the dimention
-    if dimention == 2:
+    # return according to the dimension
+    if dimension == 2:
         bpf_return = bpf
-    elif dimention == 1:
+    elif dimension == 1:
         bpf_return = bpf[0, :int(res/2)+1]
     else:
-        raise ValueError('The dimention of the simulation is invalid!')
+        raise ValueError('The dimension of the simulation is invalid!')
 
     return bpf_return
 
@@ -544,14 +676,19 @@ def idhf(res, fov, y):
 
     Parameters
     ----------
-        res: resolution of the simulation
-        fov: field of view
-        y: 1-D array to be transformed
+        res: int, 
+            resolution of the simulation
+        fov: int, 
+            field of view
+        y: 1-D array, complex
+            data to be transformed
 
     Returns
     -------
-        F: 1-D array after transformation
-        F_x: sample index
+        F: 1-D array, complex
+            transformed data
+        F_x: 1-D array, float
+            sample index
     """
 
     X = int(fov/2)
@@ -585,7 +722,7 @@ def idhf(res, fov, y):
 
     return F, F_x
 
-def apply_filter(res, fov, E, filter):
+def apply_filter(res, fov, E, bpf):
     """
     Apply the filter to the field
     the field in the real domain is transformed into Fourier domain
@@ -595,12 +732,15 @@ def apply_filter(res, fov, E, filter):
 
     Parameters
     ----------
-        E:      input field, 2-D array, compelx or real
-        filter: filter to be applied, 2-D array, int (1/0)
+        E: 2-D array, compelx or real
+            input field
+        bpf: 2-D array, 1 or 0
+            the bandpass filter to be applied
 
     Returns
     -------
-        E_filtered: filtered field in the real domain
+        E_filtered: 2-D array, complex or real
+            filtered field in the real domain
     """
 
     if E.ndim == 2:
@@ -608,7 +748,7 @@ def apply_filter(res, fov, E, filter):
         E_fft = np.fft.fft2(E)
 
         # apply the filter
-        E_fft_filtered = E_fft * filter
+        E_fft_filtered = E_fft * bpf
 
         # convert the field back
         E_filtered = np.fft.ifft2(E_fft_filtered)
@@ -617,7 +757,7 @@ def apply_filter(res, fov, E, filter):
 
     elif E.ndim == 1:
         # apply the filter to the 1-D simulation
-        E_dht_filtered = E * filter
+        E_dht_filtered = E * bpf
 
         # apply inverse hankel transform
         E_filtered, E_x = idhf(res, fov, E_dht_filtered)
@@ -630,12 +770,15 @@ def crop_field(res, E):
 
     Parameters
     ----------
-        res: the resolution be crop the field to
-        E: input field, 2-D array, complex or real
+        res: int
+            the resolution be crop the field to
+        E: 2-D array, complex or real
+            input field
 
     Returns
     -------
-        E_crop: cropped field, 2-D array, (res, res)
+        E_crop: 2-D array, (res, res)
+            cropped field
     """
 
     # get the size before and after cropping
@@ -657,14 +800,19 @@ def get_phase_shift(res, fov, k, d):
     
     Parameters
     ----------
-        res: resolution of the simulation
-        fov: field of view
-        k: wavenumber
-        d: propagation distance
+        res: int, 
+            resolution of the simulation
+        fov: int, 
+            field of view
+        k: float,
+            wavenumber
+        d: float,
+            propagation distance
         
     Returns
     -------
-        phase: phase shift map, 2D complex array
+        phase: 2-D array, complex
+            phase shift map
     """
     # calculate the fourier frequencies
     fx = np.fft.fftfreq(res, fov/res)
