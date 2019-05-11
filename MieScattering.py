@@ -542,7 +542,7 @@ def near_field(res, fov, a, n, lambDa, z, k_dir):
 
 
 
-def far_field(res, fov, z, a, n, lambDa, scale, dimension=2):
+def far_field(res, fov, z, a, n, lambDa, k_dir, scale, dimension=2):
     """
     Calculate the far field image
 
@@ -577,7 +577,7 @@ def far_field(res, fov, z, a, n, lambDa, scale, dimension=2):
     B = coeff_b(l, k, n, a)
 
     # calculate the matrix besides B vector
-    scatter = scatter_matrix(res, fov, z, a, lambDa, dimension)
+    scatter = scatter_matrix(res, fov, z, a, lambDa, k_dir, dimension)
 
     # calculate every order of the integration
     Sum = scatter * B
