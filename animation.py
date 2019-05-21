@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 import numpy as np
 
-def anime(image, FPS, data_dir, fname, option = 'Real', autoscale = False):
+def anime(image, FPS, data_dir=r'./', fname='test_animation', option = 'Real', autoscale = False):
     
     """
     convert a dataset into a animation and save as a mp4 file
@@ -45,6 +45,7 @@ def anime(image, FPS, data_dir, fname, option = 'Real', autoscale = False):
     
     img = []
     fig = plt.figure()
+    plt.axis('off')
     
     if image.shape[-1] == 1:
         _min, _max = np.amin(image[...,0]), np.amax(image[...,0])  
@@ -53,7 +54,7 @@ def anime(image, FPS, data_dir, fname, option = 'Real', autoscale = False):
                 img.append([plt.imshow(image[i,:,:,0], vmin = _min, vmax = _max)])
             else:
                 img.append([plt.imshow(image[i,:,:,0])])
-    else:
+    elif image.shape[-1] == 2:
         if option == 'Real':
             _min, _max = np.amin(image[...,0]), np.amax(image[...,0])
             for i in range(image.shape[0]):
@@ -72,6 +73,23 @@ def anime(image, FPS, data_dir, fname, option = 'Real', autoscale = False):
             
         else:
             raise ValueError("Invalid channel type!")
+            
+    else:
+        if option == 'Real':
+            _min, _max = np.amin(np.real(image)), np.amax(np.real(image))
+            for i in range(image.shape[0]):
+                if autoscale:
+                    img.append([plt.imshow(np.real(image[i,...]), vmin = _min, vmax = _max)])
+                else:
+                    img.append([plt.imshow(np.real(image[i,...]))])
+            
+        elif option == 'Imaginary':
+            _min, _max = np.amin(np.imag(image)), np.amax(np.imag(image))
+            for i in range(image.shape[0]):
+                if autoscale:
+                    img.append([plt.imshow(np.imag(image[i,...]), vmin = _min, vmax = _max)])
+                else:
+                    img.append([plt.imshow(np.imag(image[i,...]))])
     
     ani = animation.ArtistAnimation(fig,img,interval=int(1000/FPS))
     writer = animation.writers['ffmpeg'](fps=FPS)

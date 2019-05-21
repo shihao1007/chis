@@ -830,3 +830,22 @@ def get_phase_shift(res, fov, k, d):
     phase = np.exp(1j * kz * d)
     
     return phase
+
+def normalize(E):
+    """
+    normalize the 1-D field after inverse discrete Hankel Transform
+    
+    Parameters
+    ----------
+        E: complex, 1-D vector
+            the input field
+    
+    Returns
+    -------
+        E_norm: complex, 1-D vector
+            the normalized field with 0 mean and 1 variance
+    """
+    
+    E_norm = (E-np.mean(E))/np.std(E)
+    
+    return E_norm
